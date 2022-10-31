@@ -125,7 +125,7 @@ public class MeshInstancing : MonoBehaviour
         {
             Profiler.BeginSample("Animate Mesh RT Instances");
 
-            instanceData.Update(Time.time * 3);
+            instanceData.Update(Application.isPlaying ? Time.time * 3 : 0);
 
             RayTracingMeshInstanceConfig config = new RayTracingMeshInstanceConfig(mesh, 0, material);
 
