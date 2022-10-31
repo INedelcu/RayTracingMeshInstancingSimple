@@ -1,1 +1,1 @@
-"# RayTracingMeshInstancingSimple" 
+# RayTracingMeshInstancingSimple
