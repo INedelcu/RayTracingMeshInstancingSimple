@@ -13,7 +13,7 @@ In hit shaders, per-instance shader properties are accessed using a combination 
 
 `uint instanceID = InstanceIndex() - unity_BaseInstanceID;`
 
-Check [MeshInstancing.shader](Assets/Shaders/MeshInstancing.shader) where per-instance color is read from a buffer.
+Check [MeshInstancing.shader](https://github.com/INedelcu/RayTracingMeshInstancingSimple/blob/30147d60a32af80ec2b7b57ec7b738e610913ddb/Assets/Shaders/MeshInstancing.shader#L150) where per-instance color is read from a buffer.
 
 [RayTracingInstanceData.cs](Assets/Scripts/RayTracingInstanceData.cs) computes per-instance transformation matrices and colors.
 
