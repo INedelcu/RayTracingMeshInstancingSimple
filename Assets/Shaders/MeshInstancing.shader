@@ -58,18 +58,16 @@ Shader "RayTracing/MeshInstancing"
             #pragma raytracing some_name
 
             // Use INSTANCING_ON shader keyword for supporting instanced and non-instanced geometries.
-            // Unity will setup SH coeffiecients - unity_SHAArray, unity_SHBArray, etc when RayTracingAccelerationStructure.AddInstances in used.
+            // Unity will setup SH coeffiecients - unity_SHAArray, unity_SHBArray, etc when RayTracingAccelerationStructure.AddInstances is used.
             //#pragma multi_compile _ INSTANCING_ON
 
             // Unity built-in shader property and represents the index of the fist ray tracing Mesh instance in the TLAS.
             uint unity_BaseInstanceID;
 
+            // How many ray tracing instances were added using RayTracingAccelerationStructure.AddInstances is used. Not used here.
             uint unity_InstanceCount;
 
             StructuredBuffer<float3> g_Colors;
-
-            // Calculated in the closest hit shader and it's the difference between the global ray tracing instance in the TLAS and unity_BaseInstanceID.
-            static uint unity_InstanceID;
 
             struct AttributeData
             {
@@ -102,7 +100,7 @@ Shader "RayTracing/MeshInstancing"
             [shader("closesthit")]
             void ClosestHitMain(inout RayPayload payload : SV_RayPayload, AttributeData attribs : SV_IntersectionAttributes)
             {
-                unity_InstanceID = InstanceIndex() - unity_BaseInstanceID;
+                uint instanceID = InstanceIndex() - unity_BaseInstanceID;
 
                 uint3 triangleIndices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
 
@@ -149,7 +147,7 @@ Shader "RayTracing/MeshInstancing"
                     reflectionCol = g_EnvTexture.SampleLevel(sampler_g_EnvTexture, reflectionVec, 0).xyz;
                 }
                 
-                payload.color = lerp(light, reflectionCol, t) * g_Colors[unity_InstanceID];
+                payload.color = lerp(light, reflectionCol, t) * g_Colors[instanceID];
             }
 
             ENDHLSL
