@@ -9,7 +9,7 @@ The project uses [RayTracingAccelerationStructure.AddInstances](https://docs.uni
 
 Resource binding for hit shaders is done through [shader tables and shader records](https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html#shader-record). Writing shader records can be an expensive CPU operation when Materials are complex and use many resources and properties. When using *AddInstances* function, all ray tracing instances associated with the specified Mesh will use the same shader record which can notably improve CPU performance.
 
-In hit shaders, per-instance shader properties are accessed using a combination of HLSL intrinsic [InstanceIndex()](https://learn.microsoft.com/en-us/windows/win32/direct3d12/instanceindex) and built-in shader variable **unity_BaseInstanceID**. For example:
+In hit shaders, per-instance shader properties are accessed using the difference between HLSL intrinsic [InstanceIndex()](https://learn.microsoft.com/en-us/windows/win32/direct3d12/instanceindex) and built-in shader variable **unity_BaseInstanceID**. For example:
 
 `uint instanceID = InstanceIndex() - unity_BaseInstanceID;`
 
