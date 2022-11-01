@@ -57,7 +57,9 @@ Shader "RayTracing/MeshInstancing"
 
             #pragma raytracing some_name
 
-            #pragma multi_compile _ INSTANCING_ON
+            // Use INSTANCING_ON shader keyword for supporting instanced and non-instanced geometries.
+            // Unity will setup SH coeffiecients - unity_SHAArray, unity_SHBArray, etc when RayTracingAccelerationStructure.AddInstances in used.
+            //#pragma multi_compile _ INSTANCING_ON
 
             // Unity built-in shader property and represents the index of the fist ray tracing Mesh instance in the TLAS.
             uint unity_BaseInstanceID;
@@ -75,13 +77,15 @@ Shader "RayTracing/MeshInstancing"
             };
 
             struct Vertex
-            {                
+            {
+                float3 position;
                 float3 normal;
             };
 
             Vertex FetchVertex(uint vertexIndex)
             {
-                Vertex v;                
+                Vertex v;
+                v.position = UnityRayTracingFetchVertexAttribute3(vertexIndex, kVertexAttributePosition);
                 v.normal = UnityRayTracingFetchVertexAttribute3(vertexIndex, kVertexAttributeNormal);
                 return v;
             }
@@ -89,7 +93,8 @@ Shader "RayTracing/MeshInstancing"
             Vertex InterpolateVertices(Vertex v0, Vertex v1, Vertex v2, float3 barycentrics)
             {
                 Vertex v;
-#define INTERPOLATE_ATTRIBUTE(attr) v.attr = v0.attr * barycentrics.x + v1.attr * barycentrics.y + v2.attr * barycentrics.z                
+#define INTERPOLATE_ATTRIBUTE(attr) v.attr = v0.attr * barycentrics.x + v1.attr * barycentrics.y + v2.attr * barycentrics.z
+                INTERPOLATE_ATTRIBUTE(position);
                 INTERPOLATE_ATTRIBUTE(normal);
                 return v;
             }
@@ -113,12 +118,37 @@ Shader "RayTracing/MeshInstancing"
 
                 float3 reflectionVec = reflect(WorldRayDirection(), worldNormal);
 
-                float3 reflectionCol = g_EnvTexture.SampleLevel(sampler_g_EnvTexture, reflectionVec, 0).xyz;
-       
-                float t = saturate(0.05 + pow(saturate(dot(reflectionVec, WorldRayDirection())), 3));
+                float3 reflectionCol = float3(0, 0, 0);
 
-                float3 light = saturate(dot(worldNormal, normalize(float3(0.0, 1.0, 0.0))));
+                float t = saturate(0.1 + pow(saturate(dot(reflectionVec, WorldRayDirection())), 3));
 
+                float3 lightDir = float3(0.0, -1.0, 0.0);
+                float3 light = saturate(dot(worldNormal, normalize(-lightDir)));
+
+                if (payload.bounceIndex < 2)
+                {
+                    float3 worldPosition = mul(ObjectToWorld(), float4(v.position, 1));
+
+                    RayDesc ray;
+                    ray.Origin = worldPosition + worldNormal * 0.005f;
+                    ray.Direction = reflectionVec;
+                    ray.TMin = 0;
+                    ray.TMax = 1e20f;
+
+                    RayPayload payloadRefl;
+                    payloadRefl.color = float3(0, 0, 0);
+                    payloadRefl.bounceIndex = payload.bounceIndex + 1;
+
+                    uint missShaderIndex = 0;
+                    TraceRay(g_AccelStruct, 0, 0xFF, 0, 1, missShaderIndex, ray, payloadRefl);
+
+                    reflectionCol = payloadRefl.color;
+                }
+                else
+                {
+                    reflectionCol = g_EnvTexture.SampleLevel(sampler_g_EnvTexture, reflectionVec, 0).xyz;
+                }
+                
                 payload.color = lerp(light, reflectionCol, t) * g_Colors[unity_InstanceID];
             }
 
