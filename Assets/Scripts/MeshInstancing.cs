@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Profiling;
+using UnityEngine.UI;
 
 [ExecuteInEditMode]
 public class MeshInstancing : MonoBehaviour
@@ -12,6 +13,14 @@ public class MeshInstancing : MonoBehaviour
     [SerializeField] Texture envTexture = null;
     [SerializeField] Color color1 = Color.red;
     [SerializeField] Color color2 = Color.yellow;
+
+    public Toggle enableInstancingToggle;
+    public Toggle enableAnimationToggle;
+    public Toggle enableRayBounceToggle;
+    public Text fpsText;
+    public Text titleText;
+
+    private float deltaTime = 0;
 
     uint cameraWidth = 0;
     uint cameraHeight = 0;
@@ -89,7 +98,21 @@ public class MeshInstancing : MonoBehaviour
 
         rtas = new RayTracingAccelerationStructure();
     }
-  
+    private void Update()
+    {
+        if (fpsText)
+        {
+            deltaTime += (Time.deltaTime - deltaTime) * 0.1f;
+            float fps = 1.0f / deltaTime;
+            fpsText.text = "FPS: " + Mathf.Ceil(fps).ToString();
+        }
+
+        if (titleText)
+        {
+            titleText.text = "Adding " + counts.x * counts.y + " instances to RTAS";
+        }
+    }
+
     [ImageEffectOpaque]
     void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
@@ -121,11 +144,20 @@ public class MeshInstancing : MonoBehaviour
 
         rtas.ClearInstances();
 
+        bool instancingEnabled = (enableInstancingToggle == null) || enableInstancingToggle.isOn;
+
         if (instanceData != null)
         {
             Profiler.BeginSample("Animate Mesh RT Instances");
 
-            instanceData.Update(Application.isPlaying ? Time.time * 3 : 0);
+            bool enableAnimation = !enableAnimationToggle || enableAnimationToggle.isOn;
+
+            if (enableAnimation)
+                instanceData.Update(Application.isPlaying ? Time.time * 3 : 0);
+
+            Profiler.EndSample();
+
+            Profiler.BeginSample("Add Mesh RT Instances to RTAS");
 
             RayTracingMeshInstanceConfig config = new RayTracingMeshInstanceConfig(mesh, 0, material);
 
@@ -134,8 +166,22 @@ public class MeshInstancing : MonoBehaviour
 
             // Not providing light probe data at all.
             config.lightProbeUsage = LightProbeUsage.CustomProvided;
-
-            rtas.AddInstances(config, instanceData.matrices);
+            
+            if (instancingEnabled)
+            {
+                rtas.AddInstances(config, instanceData.matrices);
+            }
+            else
+            {
+                // Add the instances one by one.
+                for (int i = 0; i < instanceData.matrices.Length; i++)
+                {
+                    // Use custom InstanceID() in HLSL to read the instance matrix from g_Colors;
+                    // The last argument is the custom InstanceID().
+                    
+                    rtas.AddInstance(config, instanceData.matrices[i], null, (uint)i);
+                }
+            }
 
             Profiler.EndSample();
         }
@@ -149,6 +195,9 @@ public class MeshInstancing : MonoBehaviour
         cmdBuffer.SetRayTracingMatrixParam(rayTracingShader, Shader.PropertyToID("g_InvViewMatrix"), Camera.main.cameraToWorldMatrix);
         cmdBuffer.SetRayTracingFloatParam(rayTracingShader, Shader.PropertyToID("g_Zoom"), Mathf.Tan(Mathf.Deg2Rad * Camera.main.fieldOfView * 0.5f));
         cmdBuffer.SetGlobalTexture(Shader.PropertyToID("g_EnvTexture"), envTexture);
+
+        bool enableRayBounce = !enableRayBounceToggle || enableRayBounceToggle.isOn;
+        cmdBuffer.SetGlobalInteger(Shader.PropertyToID("g_EnableRayBounce"), enableRayBounce ? 1 : 0);
 
         // Output
         cmdBuffer.SetRayTracingTextureParam(rayTracingShader, Shader.PropertyToID("g_Output"), rayTracingOutput);

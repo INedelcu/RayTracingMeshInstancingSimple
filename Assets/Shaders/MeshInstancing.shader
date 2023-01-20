@@ -59,13 +59,17 @@ Shader "RayTracing/MeshInstancing"
 
             // Use INSTANCING_ON shader keyword for supporting instanced and non-instanced geometries.
             // Unity will setup SH coeffiecients - unity_SHAArray, unity_SHBArray, etc when RayTracingAccelerationStructure.AddInstances is used.
-            //#pragma multi_compile _ INSTANCING_ON
+            #pragma multi_compile _ INSTANCING_ON
 
+#if INSTANCING_ON
             // Unity built-in shader property and represents the index of the fist ray tracing Mesh instance in the TLAS.
             uint unity_BaseInstanceID;
 
             // How many ray tracing instances were added using RayTracingAccelerationStructure.AddInstances is used. Not used here.
             uint unity_InstanceCount;
+#endif
+
+            int g_EnableRayBounce;
 
             StructuredBuffer<float3> g_Colors;
 
@@ -100,8 +104,6 @@ Shader "RayTracing/MeshInstancing"
             [shader("closesthit")]
             void ClosestHitMain(inout RayPayload payload : SV_RayPayload, AttributeData attribs : SV_IntersectionAttributes)
             {
-                uint instanceID = InstanceIndex() - unity_BaseInstanceID;
-
                 uint3 triangleIndices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
 
                 Vertex v0, v1, v2;
@@ -123,7 +125,7 @@ Shader "RayTracing/MeshInstancing"
                 float3 lightDir = float3(0.0, -1.0, 0.0);
                 float3 light = saturate(dot(worldNormal, normalize(-lightDir)));
 
-                if (payload.bounceIndex < 2)
+                if (g_EnableRayBounce == 1 && payload.bounceIndex < 2)
                 {
                     float3 worldPosition = mul(ObjectToWorld(), float4(v.position, 1));
 
@@ -146,8 +148,16 @@ Shader "RayTracing/MeshInstancing"
                 {
                     reflectionCol = g_EnvTexture.SampleLevel(sampler_g_EnvTexture, reflectionVec, 0).xyz;
                 }
+
+#if INSTANCING_ON
+                uint instanceID = InstanceIndex() - unity_BaseInstanceID;
+
+                float3 instanceColor = g_Colors[instanceID];
+#else
+                float3 instanceColor = g_Colors[InstanceID()];
+#endif
                 
-                payload.color = lerp(light, reflectionCol, t) * g_Colors[instanceID];
+                payload.color = lerp(light, reflectionCol, t) * instanceColor;
             }
 
             ENDHLSL
