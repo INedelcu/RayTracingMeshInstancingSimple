@@ -20,7 +20,8 @@ public class MeshInstancing : MonoBehaviour
     public Text fpsText;
     public Text titleText;
 
-    private float deltaTime = 0;
+    private float lastRealtimeSinceStartup = 0;
+    private float updateFPSTimer = 1.0f;
 
     uint cameraWidth = 0;
     uint cameraHeight = 0;
@@ -102,9 +103,17 @@ public class MeshInstancing : MonoBehaviour
     {
         if (fpsText)
         {
-            deltaTime += (Time.deltaTime - deltaTime) * 0.1f;
-            float fps = 1.0f / deltaTime;
-            fpsText.text = "FPS: " + Mathf.Ceil(fps).ToString();
+            float deltaTime = Time.realtimeSinceStartup - lastRealtimeSinceStartup;
+            updateFPSTimer += deltaTime;
+            
+            if (updateFPSTimer >= 0.2f)
+            {
+                float fps = 1.0f / Mathf.Max(deltaTime, 0.0001f);
+                fpsText.text = "FPS: " + Mathf.Ceil(fps).ToString();
+                updateFPSTimer = 0.0f;
+            }
+
+            lastRealtimeSinceStartup = Time.realtimeSinceStartup;
         }
 
         if (titleText)
