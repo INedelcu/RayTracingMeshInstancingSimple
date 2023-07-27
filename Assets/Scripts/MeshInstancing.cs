@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Profiling;
@@ -153,46 +154,53 @@ public class MeshInstancing : MonoBehaviour
 
         rtas.ClearInstances();
 
-        bool instancingEnabled = (enableInstancingToggle == null) || enableInstancingToggle.isOn;
-
-        if (instanceData != null)
+        try
         {
-            Profiler.BeginSample("Animate Mesh RT Instances");
+            bool instancingEnabled = (enableInstancingToggle == null) || enableInstancingToggle.isOn;
 
-            bool enableAnimation = !enableAnimationToggle || enableAnimationToggle.isOn;
-
-            if (enableAnimation)
-                instanceData.Update(Application.isPlaying ? Time.time * 3 : 0);
-
-            Profiler.EndSample();
-
-            Profiler.BeginSample("Add Mesh RT Instances to RTAS");
-
-            RayTracingMeshInstanceConfig config = new RayTracingMeshInstanceConfig(mesh, 0, material);
-
-            config.materialProperties = new MaterialPropertyBlock();
-            config.materialProperties.SetBuffer("g_Colors", instanceData.colors);
-
-            // Not providing light probe data at all.
-            config.lightProbeUsage = LightProbeUsage.CustomProvided;
-            
-            if (instancingEnabled)
+            if (instanceData != null)
             {
-                rtas.AddInstances(config, instanceData.matrices);
-            }
-            else
-            {
-                // Add the instances one by one.
-                for (int i = 0; i < instanceData.matrices.Length; i++)
+                Profiler.BeginSample("Animate Mesh RT Instances");
+
+                bool enableAnimation = !enableAnimationToggle || enableAnimationToggle.isOn;
+
+                if (enableAnimation)
+                    instanceData.Update(Application.isPlaying ? Time.time * 3 : 0);
+
+                Profiler.EndSample();
+
+                Profiler.BeginSample("Add Mesh RT Instances to RTAS");
+
+                RayTracingMeshInstanceConfig config = new RayTracingMeshInstanceConfig(mesh, 0, material);
+
+                config.materialProperties = new MaterialPropertyBlock();
+                config.materialProperties.SetBuffer("g_Colors", instanceData.colors);
+
+                // Not providing light probe data at all.
+                config.lightProbeUsage = LightProbeUsage.CustomProvided;
+
+                if (instancingEnabled)
                 {
-                    // Use custom InstanceID() in HLSL to read the instance matrix from g_Colors;
-                    // The last argument is the custom InstanceID().
-                    
-                    rtas.AddInstance(config, instanceData.matrices[i], null, (uint)i);
+                    rtas.AddInstances(config, instanceData.matrices);
                 }
-            }
+                else
+                {
+                    // Add the instances one by one.
+                    for (int i = 0; i < instanceData.matrices.Length; i++)
+                    {
+                        // Use custom InstanceID() in HLSL to read the instance matrix from g_Colors;
+                        // The last argument is the custom InstanceID().
 
-            Profiler.EndSample();
+                        rtas.AddInstance(config, instanceData.matrices[i], null, (uint)i);
+                    }
+                }
+
+                Profiler.EndSample();
+            }
+        }
+        catch (Exception e) 
+        { 
+            Debug.Log("An exception occurred: " + e.Message);
         }
 
         cmdBuffer.BuildRayTracingAccelerationStructure(rtas);
